@@ -2,7 +2,7 @@ import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, QoSHistoryPolicy, QoSDurabilityPolicy, QoSReliabilityPolicy
 from sensor_msgs.msg import Image
-from interfaces_pkg.msg import PathPlanningResult, MotionCommand
+from interfaces_pkg.msg import PathPlanningResult, MotionCommand, Point2D
 import cv2
 from cv_bridge import CvBridge
 
@@ -11,7 +11,7 @@ SUB_ROI_IMAGE_TOPIC = "roi_image"
 SUB_SPLINE_PATH_TOPIC = "path_planning_result"
 SUB_MOTION_COMMAND_TOPIC = "topic_control_signal"
 PUB_TOPIC_NAME = "steering_visualized_img" # A new topic for the visualized output
-
+SUB_GOAL_POINT_TOPIC = "goal_point"
 #----------------------------------------------
 class SteeringVisualizerNode(Node):
     def __init__(self):
@@ -22,6 +22,7 @@ class SteeringVisualizerNode(Node):
         self.sub_spline_path_topic = self.declare_parameter('sub_spline_path_topic', SUB_SPLINE_PATH_TOPIC).value
         self.sub_motion_command_topic = self.declare_parameter('sub_motion_command_topic', SUB_MOTION_COMMAND_TOPIC).value
         self.pub_topic = self.declare_parameter('pub_topic', PUB_TOPIC_NAME).value
+        self.sub_goal_point_topic = self.declare_parameter('sub_goal_point_topic', SUB_GOAL_POINT_TOPIC).value
         
         # Configure QoS profile
         self.qos_profile = QoSProfile(
@@ -33,7 +34,8 @@ class SteeringVisualizerNode(Node):
 
         # Initialize CvBridge
         self.cv_bridge = CvBridge()
-
+        self.goal_point_sub = self.create_subscription(
+                    Point2D, self.sub_goal_point_topic, self.goal_point_callback, self.qos_profile)
         # Create subscribers
         self.roi_image_sub = self.create_subscription(
             Image, self.sub_roi_image_topic, self.image_callback, self.qos_profile)
@@ -51,6 +53,7 @@ class SteeringVisualizerNode(Node):
         self.current_image = None
         self.spline_path = None
         self.steering_angle = 0.0
+        self.goal_point = None
 
     def image_callback(self, msg: Image):
         try:
@@ -67,17 +70,40 @@ class SteeringVisualizerNode(Node):
         self.steering_angle = float(msg.steering)
         self.visualize_data()
 
+
+    def goal_point_callback(self, msg: Point2D):
+        self.goal_point = (msg.x, msg.y)
+        # 이미지가 있을 경우에만 즉시 다시 그립니다.
+        if self.current_image is not None:
+            self.visualize_data()
+
     def visualize_data(self):
         if self.current_image is None:
             return
 
         display_image = self.current_image.copy()
+        roi_start_y = 300
 
         # Draw the path if it's available
         if self.spline_path:
             for (x, y) in self.spline_path:
-                cv2.circle(display_image, (int(x), int(y)), 5, (0, 0, 255), -1)
+                transformed_y = int(y) - roi_start_y
+                cv2.circle(display_image, (int(x), transformed_y), 5, (0, 0, 255), -1)
 
+        if self.goal_point:
+            # 차량 중심점 (디버깅용)
+            car_center_x = 300
+            car_center_y = 437 - roi_start_y
+            goal_point_x = int(self.goal_point[0])
+            goal_point_y_roi = int(self.goal_point[1]) - roi_start_y
+            
+            # 목표 지점 그리기 (초록색 원)
+            cv2.circle(display_image, (goal_point_x, goal_point_y_roi), 8, (0, 255, 0), 2)
+            
+            # 차량 중심과 목표 지점을 잇는 선 그리기 (노란색 선)
+            cv2.line(display_image, (car_center_x, car_center_y), 
+                     (goal_point_x, goal_point_y_roi), (0, 255, 255), 2)
+            
         # Display the steering angle
         steer_val_text = f"Steer: {self.steering_angle:.2f}"
         cv2.putText(display_image, steer_val_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)

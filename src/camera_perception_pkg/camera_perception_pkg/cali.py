@@ -4,7 +4,7 @@ import numpy as np
 
 #경로 끝 png 파일 이름 변경
 # --- 설정 ---
-IMAGE_PATH = '0_steer_0_left_speed_40_right_speed_40.png' # 캘리브레이션에 사용할 이미지 파일 경로
+IMAGE_PATH = '12.png' # 캘리브레이션에 사용할 이미지 파일 경로
 # \\wsl.localhost\Ubuntu-22.04\home\jeanho\ros2_ws\src\camera_perception_pkg\camera_perception_pkg\lib\Collected_Datasets\data1\0_steer_0_left_speed_40_right_speed_40.png
 IMAGE_WIDTH = 640  # 이미지 너비
 IMAGE_HEIGHT = 480 # 이미지 높이

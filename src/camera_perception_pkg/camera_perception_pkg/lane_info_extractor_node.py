@@ -59,7 +59,7 @@ class Yolov8InfoExtractor(Node):
 
         (h, w) = (lane_edge_image.shape[0], lane_edge_image.shape[1]) #(480, 640)
         dst_mat = [[round(w * 0.3), round(h * 0.0)], [round(w * 0.7), round(h * 0.0)], [round(w * 0.7), h], [round(w * 0.3), h]]
-        src_mat = [[202, 290],[362, 250], [470, 420], [60, 415]]
+        src_mat = [[217, 233], [331, 237], [542, 465], [11, 455]] #[[202, 290],[362, 250], [470, 420], [60, 415]]
         
         lane_bird_image = CPFL.bird_convert(lane_edge_image, srcmat=src_mat, dstmat=dst_mat)
         roi_image = CPFL.roi_rectangle_below(lane_bird_image, cutting_idx=300)
