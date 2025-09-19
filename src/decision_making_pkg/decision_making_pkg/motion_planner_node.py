@@ -114,8 +114,8 @@ class MotionPlanningNode(Node):
                 target_steering = 0.0
             else:
                 # 1. 목표 지점(Goal Point) 찾기
-                car_center_x = 300
-                car_center_y = 437
+                car_center_x = 269
+                car_center_y = 440
                 
                 goal_point = None
                 for point in reversed(self.path_data):
@@ -145,8 +145,8 @@ class MotionPlanningNode(Node):
                 max_steer = 7.0
                 target_steering = np.clip(target_steering, -max_steer, max_steer)
 
-            self.left_speed_command = 50
-            self.right_speed_command = 50
+            self.left_speed_command = 100
+            self.right_speed_command = 100
 
         # 저대역 통과 필터로 조향 명령을 부드럽게 만듦
         self.steering_command = (self.smoothing_factor * target_steering) + \

@@ -10,6 +10,7 @@ from cv_bridge import CvBridge
 
 from sensor_msgs.msg import Image
 from interfaces_pkg.msg import TargetPoint, LaneInfo, DetectionArray, BoundingBox2D, Detection
+from geometry_msgs.msg import Point
 from .lib import camera_perception_func_lib as CPFL
 
 #---------------Variable Setting---------------
@@ -59,10 +60,10 @@ class Yolov8InfoExtractor(Node):
 
         (h, w) = (lane_edge_image.shape[0], lane_edge_image.shape[1]) #(480, 640)
         dst_mat = [[round(w * 0.3), round(h * 0.0)], [round(w * 0.7), round(h * 0.0)], [round(w * 0.7), h], [round(w * 0.3), h]]
-        src_mat = [[217, 233], [331, 237], [542, 465], [11, 455]] #[[202, 290],[362, 250], [470, 420], [60, 415]]
-        
+        #src_mat = [[241, 225], [342, 219], [637, 348], [27, 341]]
+        src_mat = [[270, 184], [364, 184], [635, 414], [2, 352]]
         lane_bird_image = CPFL.bird_convert(lane_edge_image, srcmat=src_mat, dstmat=dst_mat)
-        roi_image = CPFL.roi_rectangle_below(lane_bird_image, cutting_idx=300)
+        roi_image = CPFL.roi_rectangle_below(lane_bird_image, cutting_idx=200)
 
         if self.show_image:
             #cv2.imshow('lane_edge_image', lane_edge_image)
@@ -94,12 +95,63 @@ class Yolov8InfoExtractor(Node):
             target_point.target_y = round(target_point_y)
             target_points.append(target_point)
 
+        left_xy, right_xy = self._extract_left_right_points(roi_image)
         lane = LaneInfo()
         lane.slope = grad
         lane.target_points = target_points
-
+        for (x, y) in left_xy:
+            p = Point(); p.x = float(x); p.y = float(y); p.z = 0.0
+            lane.left_lane_points.append(p)
+        for (x, y) in right_xy:
+            p = Point(); p.x = float(x); p.y = float(y); p.z = 0.0
+            lane.right_lane_points.append(p)
         self.publisher.publish(lane)
 
+    def _extract_left_right_points(self, roi_image):
+        """
+        단순/견고: 외곽 컨투어 2개를 좌/우로 간주하고,
+        고정된 y 샘플들에서 x를 보간해 포인트 리스트 반환.
+        """
+        sample_ys = [5, 55, 105, 155]  # 기존 center 샘플 y와 동일하게 맞춤  :contentReference[oaicite:6]{index=6}
+        # 이진화 (이미 mono8이므로 임계값만)
+        _, bin_img = cv2.threshold(roi_image, 127, 255, cv2.THRESH_BINARY)
+
+        contours, _ = cv2.findContours(bin_img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+        contours = [c for c in contours if cv2.arcLength(c, False) > 50]
+
+        if not contours:
+            return [], []
+
+        # 평균 x로 정렬 → 좌/우
+        contours = sorted(contours, key=lambda c: float(c[:,0,0].mean()))
+        if len(contours) == 1:
+            # 하나만 있을 때는 좌/우 판단만 해서 한쪽만 리턴
+            mid_x = roi_image.shape[1] / 2.0
+            cx = float(contours[0][:,0,0].mean())
+            pts = self._points_on_y(contours[0], sample_ys)
+            return (pts, []) if cx < mid_x else ([], pts)
+
+        c_left, c_right = contours[0], contours[1]
+        left_pts  = self._points_on_y(c_left,  sample_ys)
+        right_pts = self._points_on_y(c_right, sample_ys)
+        return left_pts, right_pts
+
+    def _points_on_y(self, contour, sample_ys):
+        pts = contour[:,0,:].astype(float)  # (N,2) x,y
+        # y로 정렬
+        pts = pts[pts[:,1].argsort()]
+        xs, ys = pts[:,0], pts[:,1]
+        out = []
+        for yq in sample_ys:
+            idx = ys.searchsorted(yq)
+            if 0 < idx < len(ys):
+                y0, y1 = ys[idx-1], ys[idx]
+                x0, x1 = xs[idx-1], xs[idx]
+                if y1 != y0:
+                    t = (yq - y0) / (y1 - y0)
+                    xq = x0 + t*(x1 - x0)
+                    out.append((float(xq), float(yq)))
+        return out
 
 def main(args=None):
     rclpy.init(args=args)

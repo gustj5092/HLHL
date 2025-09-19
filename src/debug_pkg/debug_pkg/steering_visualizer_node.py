@@ -2,7 +2,7 @@ import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, QoSHistoryPolicy, QoSDurabilityPolicy, QoSReliabilityPolicy
 from sensor_msgs.msg import Image
-from interfaces_pkg.msg import PathPlanningResult, MotionCommand, Point2D
+from interfaces_pkg.msg import PathPlanningResult, MotionCommand, Point2D, LaneInfo
 import cv2
 from cv_bridge import CvBridge
 
@@ -45,7 +45,8 @@ class SteeringVisualizerNode(Node):
 
         self.motion_command_sub = self.create_subscription(
             MotionCommand, self.sub_motion_command_topic, self.motion_command_callback, self.qos_profile)
-
+        
+        self.laneinfo_sub = self.create_subscription(LaneInfo, "yolov8_lane_info", self.laneinfo_callback, self.qos_profile)  # [NEW]
         # Create publisher
         self.publisher = self.create_publisher(Image, self.pub_topic, self.qos_profile)
 
@@ -54,6 +55,13 @@ class SteeringVisualizerNode(Node):
         self.spline_path = None
         self.steering_angle = 0.0
         self.goal_point = None
+        self.right_pts = None
+        self.left_pts = None 
+
+    def laneinfo_callback(self, msg: LaneInfo):  # [NEW]
+        self.left_pts  = [(p.x, p.y) for p in msg.left_lane_points]
+        self.right_pts = [(p.x, p.y) for p in msg.right_lane_points]
+        self.visualize_data()
 
     def image_callback(self, msg: Image):
         try:
@@ -82,7 +90,7 @@ class SteeringVisualizerNode(Node):
             return
 
         display_image = self.current_image.copy()
-        roi_start_y = 300
+        roi_start_y = 200
 
         # Draw the path if it's available
         if self.spline_path:
@@ -92,8 +100,8 @@ class SteeringVisualizerNode(Node):
 
         if self.goal_point:
             # 차량 중심점 (디버깅용)
-            car_center_x = 300
-            car_center_y = 437 - roi_start_y
+            car_center_x = 269
+            car_center_y = 440 - roi_start_y
             goal_point_x = int(self.goal_point[0])
             goal_point_y_roi = int(self.goal_point[1]) - roi_start_y
             
@@ -107,7 +115,12 @@ class SteeringVisualizerNode(Node):
         # Display the steering angle
         steer_val_text = f"Steer: {self.steering_angle:.2f}"
         cv2.putText(display_image, steer_val_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
-
+        if self.left_pts:
+            for (x, y) in self.left_pts:
+                cv2.circle(display_image, (int(x), int(y) - roi_start_y), 3, (255, 0, 0), -1)
+        if self.right_pts:
+            for (x, y) in self.right_pts:
+                cv2.circle(display_image, (int(x), int(y) - roi_start_y), 3, (0, 0, 255), -1)
         # Publish the final image
         try:
             output_msg = self.cv_bridge.cv2_to_imgmsg(display_image, encoding='bgr8')

@@ -21,10 +21,10 @@ PUB_TOPIC_NAME = 'image_raw'
 DATA_SOURCE = 'video'
 
 # 카메라(웹캠) 장치 번호 (ls /dev/video* 명령을 터미널 창에 입력하여 확인)
-CAM_NUM = 4
+CAM_NUM = 8
 
 # 이미지 데이터가 들어있는 디렉토리의 경로를 입력
-IMAGE_DIRECTORY_PATH = 'src/camera_perception_pkg/camera_perception_pkg/lib/Collected_Datasets/data1'
+IMAGE_DIRECTORY_PATH = 'src/camera_perception_pkg/camera_perception_pkg/lib/Collected_Datasets'
 
 # 비디오 데이터 파일의 경로를 입력
 VIDEO_FILE_PATH = 'src/camera_perception_pkg/camera_perception_pkg/lib/Collected_Datasets/lane2.mp4'

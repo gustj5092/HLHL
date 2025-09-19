@@ -123,10 +123,10 @@ def draw_edges(detection_msg, cls_name: str, color: Tuple[int]):
 def edge_image_postproc(cv_image: np.array, show_image=True):
 	(h, w) = (cv_image.shape[0], cv_image.shape[1])
 	dst_mat = [[round(w * 0.3), round(h * 0.0)], [round(w * 0.7), round(h * 0.0)], [round(w * 0.7), h], [round(w * 0.3), h]]
-	src_mat = [[238, 316],[402, 313], [501, 476], [155, 476]]
+	src_mat = [[241, 225], [342, 219], [637, 348], [27, 341]]
 
 	lane2_bird_img = bird_convert(cv_image, srcmat=src_mat, dstmat=dst_mat)
-	roi_img = roi_rectangle_below(lane2_bird_img, 300)
+	roi_img = roi_rectangle_below(lane2_bird_img, 200)
 
 	if show_image:
 		cv_image_names = ['lane2_edge_img', 'lane2_bird_img', 'roi_img']
